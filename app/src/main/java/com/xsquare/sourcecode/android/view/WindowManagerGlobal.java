@@ -43,8 +43,12 @@ public class WindowManagerGlobal {
     }
 
     /**
+     * IWindowSession对象，Session的代理对象，用来和Session进行通信，
+     * 同一进程里的所有ViewRootImpl对象只对应同一个Session代理对象。
+     *
      * Android的各种服务都是基于C/S结构来设计的，系统层提供服务，应用层使用服务。
      * WindowManager也是一样，它与 WindowManagerService的通信是通过WindowSession来完成的。
+     *
      * 1. 首先调用ServiceManager.getService("window")获取WindowManagerService，该方法返回的是IBinder对象，
      * 然后调用IWindowManager.Stub.asInterface()方法将WindowManagerService转换为一个IWindowManager对象。
      * 2. 然后调用openSession()方法与WindowManagerService建立一个通信会话，方便后续的跨进程通信。这个通信会话就是后面我们用到的WindowSession。
@@ -92,11 +96,12 @@ public class WindowManagerGlobal {
             return sWindowManagerService;
         }
     }
+
     /**
      * 添加view
      * @param view 要被添加的view
      * @param params params
-     * @param display display
+     * @param display display mContext.getDisplay()
      * @param parentWindow 添加的parentWindow
      */
     public void addView(android.view.View view, android.view.ViewGroup.LayoutParams params,
@@ -114,10 +119,10 @@ public class WindowManagerGlobal {
 
         final android.view.WindowManager.LayoutParams wparams = (android.view.WindowManager.LayoutParams) params;
         if (parentWindow != null) {
-            //为父window设置LayoutParams相关属性(flag、packageName、title)
+            //为父window不为null，也会为父window设置LayoutParams相关属性(flag、packageName、title)
             parentWindow.adjustLayoutParamsForSubWindow(wparams);
         } else {
-            // 如果没有父节点,如果应用设置了硬件加速，也会为该wparams设置硬件加速
+            // 如果parentWindow为null,如果应用设置了硬件加速，也会为该wparams设置硬件加速
             final Context context = view.getContext();
             if (context != null
                     && (context.getApplicationInfo().flags
@@ -130,34 +135,35 @@ public class WindowManagerGlobal {
         View panelParentView = null;
 
         synchronized (mLock) {
-            // Start watching for system property changes.
+            //监听系统配置变化
             if (mSystemPropertyUpdater == null) {
                 mSystemPropertyUpdater = new Runnable() {
                     @Override public void run() {
                         synchronized (mLock) {
                             for (int i = mRoots.size() - 1; i >= 0; --i) {
+                                //系统配置变化，则为所有ViewRootImpl重新加载系统配置
                                 mRoots.get(i).loadSystemProperties();
                             }
                         }
                     }
                 };
+                //监听系统配置变化，添加回调
                 SystemProperties.addChangeCallback(mSystemPropertyUpdater);
             }
-
+            //找出该view的系列号
             int index = findViewLocked(view, false);
             if (index >= 0) {
+                //如果该view将要消除，将立即删除（之前发送msg等待队列执行移除操作）
                 if (mDyingViews.contains(view)) {
-                    // Don't wait for MSG_DIE to make it's way through root's queue.
                     mRoots.get(index).doDie();
                 } else {
                     throw new IllegalStateException("View " + view
                             + " has already been added to the window manager.");
                 }
-                // The previous removeView() had not completed executing. Now it has.
+                // 之前的removeView（）尚未完成执行。, 现在它已经完成。
             }
 
-            // If this is a panel window, then find the window it is being
-            // attached to for future reference.
+            // 如果这是一个面板窗口，那么找到它所连接的窗口以备将来参考。
             if (wparams.type >= android.view.WindowManager.LayoutParams.FIRST_SUB_WINDOW &&
                     wparams.type <= WindowManager.LayoutParams.LAST_SUB_WINDOW) {
                 final int count = mViews.size();
@@ -167,9 +173,8 @@ public class WindowManagerGlobal {
                     }
                 }
             }
-            ////通过上下文构建ViewRootImpl
+            //通过上下文构建ViewRootImpl
             root = new ViewRootImpl(view.getContext(), display);
-
             view.setLayoutParams(wparams);
             //mViews存储着所有Window对应的View对象
             mViews.add(view);
@@ -177,10 +182,9 @@ public class WindowManagerGlobal {
             mRoots.add(root);
             ////mParams存储着所有Window对应的WindowManager.LayoutParams对象
             mParams.add(wparams);
-
             //最后做这件事是因为它触发了消息开始做事
             try {
-                ////调用ViewRootImpl.setView()方法完成Window的添加并更新界面
+                //调用ViewRootImpl.setView()方法完成Window的添加并更新界面
                 root.setView(view, wparams, panelParentView);
             } catch (RuntimeException e) {
                 // BadTokenException or InvalidDisplayException, clean up.
@@ -279,6 +283,12 @@ public class WindowManagerGlobal {
             }
         }
     }
+
+    /**
+     * 已经从WindowManagerService中移除
+     * 从mRoots,mParams,mDyingViews移除
+     * @param root
+     */
     void doRemoveView(ViewRootImpl root) {
         synchronized (mLock) {
             final int index = mRoots.indexOf(root);

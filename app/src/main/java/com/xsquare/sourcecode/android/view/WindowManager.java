@@ -125,6 +125,14 @@ public interface WindowManager extends ViewManager{
          * 系统窗口（从FIRST_SYSTEM_WINDOW至LAST_SYSTEM_WINDOW）是特殊类型的窗口由系统用于特定目的。
          * 他们不应该正常由应用程序使用，需要特殊许可使用它们。
          *
+         *
+         * 应用Window：z-index在1~99之间，它往往对应着一个Activity。
+         *
+         * 子Window：z-index在1000~1999之间，它往往不能独立存在，需要依附在父Window上，例如Dialog等。
+         *
+         * 系统Window：z-index在2000~2999之间，它往往需要声明权限才能创建，
+         * 例如Toast、状态栏、系统音量条、错误提示框都是系统Window。
+         *
          * @see #TYPE_BASE_APPLICATION
          * @see #TYPE_APPLICATION
          * @see #TYPE_APPLICATION_STARTING
@@ -1263,6 +1271,7 @@ public interface WindowManager extends ViewManager{
         public @interface SoftInputModeFlags {}
 
         /**
+         * 输入法键盘模式
          * 任何软输入区域的所需工作模式。 可以是以下任何组合：
          * 其中一个可见性状态
          * {@link #SOFT_INPUT_STATE_UNSPECIFIED}, {@link #SOFT_INPUT_STATE_UNCHANGED},

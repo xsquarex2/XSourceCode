@@ -1,12 +1,22 @@
 package com.xsquare.sourcecode.android.view;
 
 import android.content.Context;
+import android.support.annotation.LayoutRes;
 import android.view.*;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
 
 import static android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
 
 /**
+ * 应用Window：z-index在1~99之间，它往往对应着一个Activity。
+ *
+ * 子Window：z-index在1000~1999之间，它往往不能独立存在，需要依附在父Window上，例如Dialog等。
+ *
+ * 系统Window：z-index在2000~2999之间，它往往需要声明权限才能创建，
+ * 例如Toast、状态栏、系统音量条、错误提示框都是系统Window。
+ *
  * Window是一个抽象的概念，也就是说它并不是实际存在的，它以View的形式存在，
  * 每个Window都对应着一个View和一个ViewRootImpl，Window与View通过ViewRootImpl来建立联系。
  * 推而广之，我们可以理解 WindowManagerService实际管理的也不是Window，而是View，
@@ -45,6 +55,9 @@ public abstract class Window {
     public abstract View peekDecorView();
     public abstract boolean superDispatchTouchEvent(MotionEvent event);
 
+    public abstract void setContentView(@LayoutRes int layoutResID);
+    public abstract void setContentView(View view);
+    public abstract void setContentView(View view, ViewGroup.LayoutParams params);
     /**
      * 为子window布局参数设置属性
      * 属性：title、flag、packageName
@@ -117,5 +130,58 @@ public abstract class Window {
                 (mWindowAttributes.flags & FLAG_HARDWARE_ACCELERATED) != 0) {
             wp.flags |= FLAG_HARDWARE_ACCELERATED;
         }
+    }
+
+    public interface Callback {
+        //键盘事件分发
+        public boolean dispatchKeyEvent(KeyEvent event);
+
+        //触摸事件分发
+        public boolean dispatchTouchEvent(MotionEvent event);
+
+        //轨迹球事件分发
+        public boolean dispatchTrackballEvent(MotionEvent event);
+
+        //可见性事件分发
+        public boolean dispatchPopulateAccessibilityEvent(AccessibilityEvent event);
+
+        //创建Panel View
+        public View onCreatePanelView(int featureId);
+
+        //创建menu
+        public boolean onCreatePanelMenu(int featureId, Menu menu);
+
+        //画板准备好时回调
+        public boolean onPreparePanel(int featureId, View view, Menu menu);
+
+        //menu打开时回调
+        public boolean onMenuOpened(int featureId, Menu menu);
+
+        //menu item被选择时回调
+        public boolean onMenuItemSelected(int featureId, MenuItem item);
+
+        //Window Attributes发生变化时回调
+        public void onWindowAttributesChanged(WindowManager.LayoutParams attrs);
+
+        //Content View发生变化时回调
+        public void onContentChanged();
+
+        //窗口焦点发生变化时回调
+        public void onWindowFocusChanged(boolean hasFocus);
+
+        //Window被添加到WIndowManager时回调
+        public void onAttachedToWindow();
+
+        //Window被从WIndowManager中移除时回调
+        public void onDetachedFromWindow();
+
+        //画板关闭时回调
+        public void onPanelClosed(int featureId, Menu menu);
+
+        //用户开始执行搜索操作时回调
+        public boolean onSearchRequested();
+    }
+    public final android.view.WindowManager.LayoutParams getAttributes() {
+        return mWindowAttributes;
     }
 }

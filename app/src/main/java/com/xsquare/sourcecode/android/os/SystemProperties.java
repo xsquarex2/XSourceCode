@@ -22,6 +22,9 @@ public class SystemProperties {
 
     public static final int PROP_VALUE_MAX = 91;
 
+    /**
+     * 系统配置变化的Runnable回调集合
+     */
     private static final ArrayList<Runnable> sChangeCallbacks = new ArrayList<Runnable>();
 
     @GuardedBy("sRoReads")
@@ -134,6 +137,10 @@ public class SystemProperties {
         native_set(key, val);
     }
 
+    /**
+     * 添加至系统配置变化的回调集合
+     * @param callback runnable
+     */
     public static void addChangeCallback(Runnable callback) {
         synchronized (sChangeCallbacks) {
             if (sChangeCallbacks.size() == 0) {

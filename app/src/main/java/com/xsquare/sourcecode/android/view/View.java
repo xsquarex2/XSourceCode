@@ -1,22 +1,33 @@
 package com.xsquare.sourcecode.android.view;
 
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Matrix;
+import android.graphics.Outline;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
+import android.os.Handler;
+import android.os.IBinder;
 import android.support.annotation.NonNull;
 import android.util.Log;
-import android.view.KeyEvent;
-import android.view.MotionEvent;
+import android.view.*;
 import android.view.ViewParent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityEventSource;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
+import android.view.animation.Transformation;
+import android.view.inputmethod.InputMethodManager;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static java.lang.Math.max;
 
@@ -27,6 +38,8 @@ import static java.lang.Math.max;
 
 public class View implements Drawable.Callback, KeyEvent.Callback,
         AccessibilityEventSource {
+
+    AttachInfo mAttachInfo;
 
     /**
      * View分发事件
@@ -635,5 +648,519 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
     @Override
     public void sendAccessibilityEventUnchecked(AccessibilityEvent event) {
 
+    }
+
+    /**
+     * 获取透明度
+     */
+    @Visibility
+    public int getVisibility() {
+        return mViewFlags & VISIBILITY_MASK;
+    }
+
+    /**
+     * 获取布局方向
+     */
+    @LayoutDir
+    public int getRawLayoutDirection() {
+        return (mPrivateFlags2 & PFLAG2_LAYOUT_DIRECTION_MASK) >> PFLAG2_LAYOUT_DIRECTION_MASK_SHIFT;
+    }
+
+    /**
+     * detached 从window
+     */
+    void dispatchDetachedFromWindow() {
+        AttachInfo info = mAttachInfo;
+        if (info != null) {
+            int vis = info.mWindowVisibility;
+            if (vis != GONE) {
+                onWindowVisibilityChanged(GONE);
+                if (isShown()) {
+                    // Invoking onVisibilityAggregated directly here since the subtree
+                    // will also receive detached from window
+                    onVisibilityAggregated(false);
+                }
+            }
+        }
+
+        onDetachedFromWindow();
+        onDetachedFromWindowInternal();
+
+        InputMethodManager imm = InputMethodManager.peekInstance();
+        if (imm != null) {
+            imm.onViewDetachedFromWindow(this);
+        }
+
+        ListenerInfo li = mListenerInfo;
+        final CopyOnWriteArrayList<android.view.View.OnAttachStateChangeListener> listeners =
+                li != null ? li.mOnAttachStateChangeListeners : null;
+        if (listeners != null && listeners.size() > 0) {
+            // NOTE: because of the use of CopyOnWriteArrayList, we *must* use an iterator to
+            // perform the dispatching. The iterator is a safe guard against listeners that
+            // could mutate the list by calling the various add/remove methods. This prevents
+            // the array from being modified while we iterate it.
+            for (android.view.View.OnAttachStateChangeListener listener : listeners) {
+                listener.onViewDetachedFromWindow(this);
+            }
+        }
+
+        if ((mPrivateFlags & PFLAG_SCROLL_CONTAINER_ADDED) != 0) {
+            mAttachInfo.mScrollContainers.remove(this);
+            mPrivateFlags &= ~PFLAG_SCROLL_CONTAINER_ADDED;
+        }
+
+        mAttachInfo = null;
+        if (mOverlay != null) {
+            mOverlay.getOverlayView().dispatchDetachedFromWindow();
+        }
+        notifyEnterOrExitForAutoFillIfNeeded(false);
+    }
+
+
+    /**
+     * 将view添加到其父窗口时，提供给view的一组数据。
+     */
+    final static class AttachInfo {
+        interface Callbacks {
+            void playSoundEffect(int effectId);
+            boolean performHapticFeedback(int effectId, boolean always);
+        }
+
+        /**
+         * InvalidateInfo is used to post invalidate(int, int, int, int) messages
+         * to a Handler. This class contains the target (View) to invalidate and
+         * the coordinates of the dirty rectangle.
+         *
+         * For performance purposes, this class also implements a pool of up to
+         * POOL_LIMIT objects that get reused. This reduces memory allocations
+         * whenever possible.
+         */
+        static class InvalidateInfo {
+            private static final int POOL_LIMIT = 10;
+
+            private static final SynchronizedPool<InvalidateInfo> sPool =
+                    new SynchronizedPool<InvalidateInfo>(POOL_LIMIT);
+
+            android.view.View target;
+
+            int left;
+            int top;
+            int right;
+            int bottom;
+
+            public static InvalidateInfo obtain() {
+                InvalidateInfo instance = sPool.acquire();
+                return (instance != null) ? instance : new InvalidateInfo();
+            }
+
+            public void recycle() {
+                target = null;
+                sPool.release(this);
+            }
+        }
+
+        final IWindowSession mSession;
+
+        final IWindow mWindow;
+
+        final IBinder mWindowToken;
+
+        Display mDisplay;
+
+        final Callbacks mRootCallbacks;
+
+        IWindowId mIWindowId;
+        WindowId mWindowId;
+
+        /**
+         * The top view of the hierarchy.
+         */
+        android.view.View mRootView;
+
+        IBinder mPanelParentWindowToken;
+
+        boolean mHardwareAccelerated;
+        boolean mHardwareAccelerationRequested;
+        ThreadedRenderer mThreadedRenderer;
+        List<RenderNode> mPendingAnimatingRenderNodes;
+
+        /**
+         * The state of the display to which the window is attached, as reported
+         * by {@link Display#getState()}.  Note that the display state constants
+         * declared by {@link Display} do not exactly line up with the screen state
+         * constants declared by {@link android.view.View} (there are more display states than
+         * screen states).
+         */
+        int mDisplayState = Display.STATE_UNKNOWN;
+
+        /**
+         * Scale factor used by the compatibility mode
+         */
+        float mApplicationScale;
+
+        /**
+         * Indicates whether the application is in compatibility mode
+         */
+        boolean mScalingRequired;
+
+        /**
+         * Left position of this view's window
+         */
+        int mWindowLeft;
+
+        /**
+         * Top position of this view's window
+         */
+        int mWindowTop;
+
+        /**
+         * Indicates whether views need to use 32-bit drawing caches
+         */
+        boolean mUse32BitDrawingCache;
+
+        /**
+         * For windows that are full-screen but using insets to layout inside
+         * of the screen areas, these are the current insets to appear inside
+         * the overscan area of the display.
+         */
+        final Rect mOverscanInsets = new Rect();
+
+        /**
+         * For windows that are full-screen but using insets to layout inside
+         * of the screen decorations, these are the current insets for the
+         * content of the window.
+         */
+        final Rect mContentInsets = new Rect();
+
+        /**
+         * For windows that are full-screen but using insets to layout inside
+         * of the screen decorations, these are the current insets for the
+         * actual visible parts of the window.
+         */
+        final Rect mVisibleInsets = new Rect();
+
+        /**
+         * For windows that are full-screen but using insets to layout inside
+         * of the screen decorations, these are the current insets for the
+         * stable system windows.
+         */
+        final Rect mStableInsets = new Rect();
+
+        /**
+         * For windows that include areas that are not covered by real surface these are the outsets
+         * for real surface.
+         */
+        final Rect mOutsets = new Rect();
+
+        /**
+         * In multi-window we force show the navigation bar. Because we don't want that the surface
+         * size changes in this mode, we instead have a flag whether the navigation bar size should
+         * always be consumed, so the app is treated like there is no virtual navigation bar at all.
+         */
+        boolean mAlwaysConsumeNavBar;
+
+        /**
+         * The internal insets given by this window.  This value is
+         * supplied by the client (through
+         * {@link ViewTreeObserver.OnComputeInternalInsetsListener}) and will
+         * be given to the window manager when changed to be used in laying
+         * out windows behind it.
+         */
+        final ViewTreeObserver.InternalInsetsInfo mGivenInternalInsets
+                = new ViewTreeObserver.InternalInsetsInfo();
+
+        /**
+         * Set to true when mGivenInternalInsets is non-empty.
+         */
+        boolean mHasNonEmptyGivenInternalInsets;
+
+        /**
+         * All views in the window's hierarchy that serve as scroll containers,
+         * used to determine if the window can be resized or must be panned
+         * to adjust for a soft input area.
+         */
+        final ArrayList<android.view.View> mScrollContainers = new ArrayList<android.view.View>();
+
+        final KeyEvent.DispatcherState mKeyDispatchState
+                = new KeyEvent.DispatcherState();
+
+        /**
+         * Indicates whether the view's window currently has the focus.
+         */
+        boolean mHasWindowFocus;
+
+        /**
+         * The current visibility of the window.
+         */
+        int mWindowVisibility;
+
+        /**
+         * Indicates the time at which drawing started to occur.
+         */
+        long mDrawingTime;
+
+        /**
+         * Indicates whether or not ignoring the DIRTY_MASK flags.
+         */
+        boolean mIgnoreDirtyState;
+
+        /**
+         * This flag tracks when the mIgnoreDirtyState flag is set during draw(),
+         * to avoid clearing that flag prematurely.
+         */
+        boolean mSetIgnoreDirtyState = false;
+
+        /**
+         * Indicates whether the view's window is currently in touch mode.
+         */
+        boolean mInTouchMode;
+
+        /**
+         * Indicates whether the view has requested unbuffered input dispatching for the current
+         * event stream.
+         */
+        boolean mUnbufferedDispatchRequested;
+
+        /**
+         * Indicates that ViewAncestor should trigger a global layout change
+         * the next time it performs a traversal
+         */
+        boolean mRecomputeGlobalAttributes;
+
+        /**
+         * Always report new attributes at next traversal.
+         */
+        boolean mForceReportNewAttributes;
+
+        /**
+         * Set during a traveral if any views want to keep the screen on.
+         */
+        boolean mKeepScreenOn;
+
+        /**
+         * Set during a traveral if the light center needs to be updated.
+         */
+        boolean mNeedsUpdateLightCenter;
+
+        /**
+         * Bitwise-or of all of the values that views have passed to setSystemUiVisibility().
+         */
+        int mSystemUiVisibility;
+
+        /**
+         * Hack to force certain system UI visibility flags to be cleared.
+         */
+        int mDisabledSystemUiVisibility;
+
+        /**
+         * Last global system UI visibility reported by the window manager.
+         */
+        int mGlobalSystemUiVisibility = -1;
+
+        /**
+         * True if a view in this hierarchy has an OnSystemUiVisibilityChangeListener
+         * attached.
+         */
+        boolean mHasSystemUiListeners;
+
+        /**
+         * Set if the window has requested to extend into the overscan region
+         * via WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN.
+         */
+        boolean mOverscanRequested;
+
+        /**
+         * Set if the visibility of any views has changed.
+         */
+        boolean mViewVisibilityChanged;
+
+        /**
+         * Set to true if a view has been scrolled.
+         */
+        boolean mViewScrollChanged;
+
+        /**
+         * Set to true if high contrast mode enabled
+         */
+        boolean mHighContrastText;
+
+        /**
+         * Set to true if a pointer event is currently being handled.
+         */
+        boolean mHandlingPointerEvent;
+
+        /**
+         * Global to the view hierarchy used as a temporary for dealing with
+         * x/y points in the transparent region computations.
+         */
+        final int[] mTransparentLocation = new int[2];
+
+        /**
+         * Global to the view hierarchy used as a temporary for dealing with
+         * x/y points in the ViewGroup.invalidateChild implementation.
+         */
+        final int[] mInvalidateChildLocation = new int[2];
+
+        /**
+         * Global to the view hierarchy used as a temporary for dealing with
+         * computing absolute on-screen location.
+         */
+        final int[] mTmpLocation = new int[2];
+
+        /**
+         * Global to the view hierarchy used as a temporary for dealing with
+         * x/y location when view is transformed.
+         */
+        final float[] mTmpTransformLocation = new float[2];
+
+        /**
+         * mTreeObserver作为观察者处理全局事件(比如layout、pre-draw、触摸模式的改变)
+         */
+        final ViewTreeObserver mTreeObserver;
+
+        /**
+         * A Canvas used by the view hierarchy to perform bitmap caching.
+         */
+        Canvas mCanvas;
+
+        /**
+         * The view root impl.
+         */
+        final ViewRootImpl mViewRootImpl;
+
+        /**
+         * A Handler supplied by a view's {@link android.view.ViewRootImpl}. This
+         * handler can be used to pump events in the UI events queue.
+         */
+        final Handler mHandler;
+
+        /**
+         * Temporary for use in computing invalidate rectangles while
+         * calling up the hierarchy.
+         */
+        final Rect mTmpInvalRect = new Rect();
+
+        /**
+         * Temporary for use in computing hit areas with transformed views
+         */
+        final RectF mTmpTransformRect = new RectF();
+
+        /**
+         * Temporary for use in computing hit areas with transformed views
+         */
+        final RectF mTmpTransformRect1 = new RectF();
+
+        /**
+         * Temporary list of rectanges.
+         */
+        final List<RectF> mTmpRectList = new ArrayList<>();
+
+        /**
+         * Temporary for use in transforming invalidation rect
+         */
+        final Matrix mTmpMatrix = new Matrix();
+
+        /**
+         * Temporary for use in transforming invalidation rect
+         */
+        final Transformation mTmpTransformation = new Transformation();
+
+        /**
+         * Temporary for use in querying outlines from OutlineProviders
+         */
+        final Outline mTmpOutline = new Outline();
+
+        /**
+         * Temporary list for use in collecting focusable descendents of a view.
+         */
+        final ArrayList<android.view.View> mTempArrayList = new ArrayList<android.view.View>(24);
+
+        /**
+         * The id of the window for accessibility purposes.
+         */
+        int mAccessibilityWindowId = AccessibilityWindowInfo.UNDEFINED_WINDOW_ID;
+
+        /**
+         * Flags related to accessibility processing.
+         *
+         * @see AccessibilityNodeInfo#FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+         * @see AccessibilityNodeInfo#FLAG_REPORT_VIEW_IDS
+         */
+        int mAccessibilityFetchFlags;
+
+        /**
+         * The drawable for highlighting accessibility focus.
+         */
+        Drawable mAccessibilityFocusDrawable;
+
+        /**
+         * The drawable for highlighting autofilled views.
+         *
+         * @see #isAutofilled()
+         */
+        Drawable mAutofilledDrawable;
+
+        /**
+         * Show where the margins, bounds and layout bounds are for each view.
+         */
+        boolean mDebugLayout = SystemProperties.getBoolean(DEBUG_LAYOUT_PROPERTY, false);
+
+        /**
+         * Point used to compute visible regions.
+         */
+        final Point mPoint = new Point();
+
+        /**
+         * Used to track which View originated a requestLayout() call, used when
+         * requestLayout() is called during layout.
+         */
+        android.view.View mViewRequestingLayout;
+
+        /**
+         * Used to track views that need (at least) a partial relayout at their current size
+         * during the next traversal.
+         */
+        List<android.view.View> mPartialLayoutViews = new ArrayList<>();
+
+        /**
+         * Swapped with mPartialLayoutViews during layout to avoid concurrent
+         * modification. Lazily assigned during ViewRootImpl layout.
+         */
+        List<android.view.View> mEmptyPartialLayoutViews;
+
+        /**
+         * Used to track the identity of the current drag operation.
+         */
+        IBinder mDragToken;
+
+        /**
+         * The drag shadow surface for the current drag operation.
+         */
+        public android.view.Surface mDragSurface;
+
+
+        /**
+         * The view that currently has a tooltip displayed.
+         */
+        android.view.View mTooltipHost;
+
+        /**
+         * Creates a new set of attachment information with the specified
+         * events handler and thread.
+         *
+         * @param handler the events handler the view must use
+         */
+        AttachInfo(IWindowSession session, IWindow window, Display display,
+                   ViewRootImpl viewRootImpl, Handler handler, Callbacks effectPlayer,
+                   Context context) {
+            mSession = session;
+            mWindow = window;
+            mWindowToken = window.asBinder();
+            mDisplay = display;
+            mViewRootImpl = viewRootImpl;
+            mHandler = handler;
+            mRootCallbacks = effectPlayer;
+            mTreeObserver = new ViewTreeObserver(context);
+        }
     }
 }

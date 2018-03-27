@@ -13,6 +13,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 
+import com.xsquare.sourcecode.android.view.ViewManager;
 import com.xsquare.sourcecode.android.view.Window;
 
 /**
@@ -30,7 +31,7 @@ public class Activity extends ContextThemeWrapper
     /**
      * WindowManagerImpl对象，实现WindowManager接口。
      */
-    private WindowManager mWindowManager;
+    private com.xsquare.sourcecode.android.view.WindowManager mWindowManager;
     /**
      * Thread对象，主线程。
      */
@@ -48,6 +49,10 @@ public class Activity extends ContextThemeWrapper
      * View对象，用来显示Activity里的视图。
      */
     View mDecor = null;
+    /**
+     * 是否已经添加Window
+     */
+    boolean mWindowAdded = false;
 
     public static final int DONT_FINISH_TASK_WITH_ACTIVITY = 0;
     Activity mParent;
@@ -143,5 +148,27 @@ public class Activity extends ContextThemeWrapper
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
 
+    }
+    /**
+     * 设置显示，才会添加到windowManager进行管理
+     */
+    void makeVisible() {
+        if (!mWindowAdded) {
+            ViewManager wm = getWindowManager();
+            wm.addView(mDecor, getWindow().getAttributes());
+            mWindowAdded = true;
+        }
+        mDecor.setVisibility(View.VISIBLE);
+    }
+    /** 检索用于显示自定义窗口的窗口管理器。 */
+    public com.xsquare.sourcecode.android.view.WindowManager getWindowManager() {
+        return mWindowManager;
+    }
+
+    /**
+     * 获取window
+     */
+    public Window getWindow() {
+        return mWindow;
     }
 }

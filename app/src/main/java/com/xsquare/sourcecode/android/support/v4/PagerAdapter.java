@@ -36,7 +36,7 @@ public abstract class PagerAdapter {
     /**
      * 生成Item
      * 在每次 ViewPager 需要一个用以显示的 Object 的时候，该函数都会被 ViewPager.addNewItem() 调用。
-     * 在数据集发生变化的时候，一般 Activity 会调用 PagerAdapter.notifyDataSetChanged()，以通知 PagerAdapter，
+     * 在数据集发生变化的时候，一般 Activity启动流程 会调用 PagerAdapter.notifyDataSetChanged()，以通知 PagerAdapter，
      * 而 PagerAdapter 则会通知在自己这里注册过的所有 DataSetObserver。其中之一就是在 ViewPager.setAdapter()
      * 中注册过的 PageObserver。
      * PageObserver 则进而调用 ViewPager.dataSetChanged()，从而导致 ViewPager 开始触发更新其内含 View 的操作。

@@ -17,6 +17,14 @@ import com.xsquare.sourcecode.android.view.ViewManager;
 import com.xsquare.sourcecode.android.view.Window;
 
 /**
+ * 整个流程主要涉及四个进程：
+ * 1、调用者进程，如果是在桌面启动应用就是Launcher应用进程。
+ * 2、ActivityManagerService等所在的System Server进程，该进程主要运行着系统服务组件。
+ * 3、Zygote进程，该进程主要用来fork新进程。
+ * 4、新启动的应用进程，该进程就是用来承载应用运行的进程了，它也是应用的主线程（新创建的进程就是主线程），
+ * 处理组件生命周期、界面绘制等相关事情。
+ *
+ *
  * Created by xsquare on 2018/3/21.
  */
 
@@ -67,7 +75,7 @@ public class Activity extends ContextThemeWrapper
      * MotionEvent.ACTION_CANCEL	结束事件（非人为原因）
      * 处理屏幕事件，可以在分发事件之前重写此方法拦截所有touch事件
      * 但要保证保证该事件被正常处理
-     * 事件处理顺序：Activity >> ViewGroup >> View
+     * 事件处理顺序：Activity启动流程 >> ViewGroup >> View
      * @param ev 触摸事件
      * @return 如果此事件被消耗则返回true
      */
@@ -103,7 +111,7 @@ public class Activity extends ContextThemeWrapper
      * activity无论分发按键事件、触摸事件或者轨迹球事件都会调用Activity#onUserInteraction()。
      * 如果你想知道用户用某种方式和你正在运行的activity交互，可以重写Activity#onUserInteraction()。
      * 所有调用Activity#onUserLeaveHint()的回调都会首先回调Activity#onUserInteraction()。
-     * 注意：启动另一个activity,Activity#onUserInteraction()会被调用两次，一次是activity捕获到事件，
+     * 注意：启动另一个activity,Activity启动流程#onUserInteraction()会被调用两次，一次是activity捕获到事件，
      * 另一次是调用Activity#onUserLeaveHint()之前会调用Activity#onUserInteraction()。
      */
     public void onUserInteraction() {
@@ -111,8 +119,8 @@ public class Activity extends ContextThemeWrapper
     /**
      * 可重写此方法（当用户离开当前Activity）
      * 当用户的操作使一个activity准备进入后台时，此方法会像activity的生命周期的一部分被调用。
-     * 例如，当用户按下Home键， Activity#onUserLeaveHint()将会被回调。
-     * 但是当来电导致来电activity自动占据前台，Activity#onUserLeaveHint()将不会被回调。
+     * 例如，当用户按下Home键， Activity启动流程#onUserLeaveHint()将会被回调。
+     * 但是当来电导致来电activity自动占据前台，Activity启动流程#onUserLeaveHint()将不会被回调。
      * 用户手动离开当前activity，会调用该方法，比如用户主动切换任务，短按home进入桌面等。
      * 系统自动切换activity不会调用此方法，如来电，灭屏等。
      */

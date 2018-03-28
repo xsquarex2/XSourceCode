@@ -811,7 +811,7 @@ public interface WindowManager extends ViewManager{
         /**
          * 指示此窗口是否应该硬件加速。 要求硬件加速不能保证会发生。
          * 该标志只能通过程序控制才能启用硬件加速。要以编程方式为给定窗口启用硬件加速，请执行以下操作：
-         * Window w = activity.getWindow(); // in Activity's onCreate() for instance
+         * Window w = activity.getWindow(); // in Activity启动流程's onCreate() for instance
          * w.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
          * WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
          * 重要的是要记住，在设置活动或对话框的内容视图之前，必须设置此标志。

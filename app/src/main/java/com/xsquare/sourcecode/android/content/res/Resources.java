@@ -11,11 +11,13 @@ import android.util.TypedValue;
  */
 
 public class Resources {
+    private ResourcesImpl mResourcesImpl;
     public XmlResourceParser getLayout(@LayoutRes int id) throws android.content.res.Resources.NotFoundException {
         return loadXmlResourceParser(id, "layout");
     }
     XmlResourceParser loadXmlResourceParser(@AnyRes int id, @NonNull String type)
             throws android.content.res.Resources.NotFoundException {
+        //新建一个TypedValue保存xml布局资源
         final TypedValue value = obtainTempTypedValue();
         try {
             final ResourcesImpl impl = mResourcesImpl;
@@ -29,9 +31,15 @@ public class Resources {
             throw new android.content.res.Resources.NotFoundException("Resource ID #0x" + Integer.toHexString(id)
                     + " type #0x" + Integer.toHexString(value.type) + " is not valid");
         } finally {
+            //释放临时的TypedValue
             releaseTempTypedValue(value);
         }
     }
+
+    /**
+     * 新建一个typedValue
+     * @return TypedValue
+     */
     private TypedValue obtainTempTypedValue() {
         TypedValue tmpValue = null;
         synchronized (mTmpValueLock) {

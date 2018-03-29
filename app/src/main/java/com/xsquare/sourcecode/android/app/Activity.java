@@ -23,8 +23,6 @@ import com.xsquare.sourcecode.android.view.Window;
  * 3、Zygote进程，该进程主要用来fork新进程。
  * 4、新启动的应用进程，该进程就是用来承载应用运行的进程了，它也是应用的主线程（新创建的进程就是主线程），
  * 处理组件生命周期、界面绘制等相关事情。
- *
- *
  * Created by xsquare on 2018/3/21.
  */
 

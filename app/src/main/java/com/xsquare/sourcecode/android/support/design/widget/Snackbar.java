@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.support.annotation.NonNull;
 import android.support.annotation.StringRes;
+import android.support.design.widget.CoordinatorLayout;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
@@ -36,6 +37,10 @@ public final class Snackbar {
     public static Snackbar make(@NonNull View view, @StringRes int resId, @Duration int duration) {
         return make(view, view.getResources().getText(resId), duration);
     }
+
+    /**
+     * 只会返回CoordinatorLayout或者android.R.id.content
+     */
     private static ViewGroup findSuitableParent(View view) {
         ViewGroup fallback = null;
         do {
@@ -49,7 +54,6 @@ public final class Snackbar {
                 }
             }
             if (view != null) {
-
                 final ViewParent parent = view.getParent();
                 view = parent instanceof View ? (View) parent : null;
             }

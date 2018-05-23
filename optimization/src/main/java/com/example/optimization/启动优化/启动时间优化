@@ -1,0 +1,47 @@
+# 启动耗时的地方其实主要有个两个地方：
+
+* Application的onCreate()方法
+* MainActivity的onCreate()方法
+#优化的手段也无非三种，如下所示：
+* 延迟初始化
+* 后台任务
+* 界面预加载
+
+## 延迟初始化
+延迟初始化主要指的是在Application的onCreate()方法里执行的组件库的初始化工作，
+这里可以仔细梳理一遍，哪些是一定要当前初始化完成的，哪些是可以放在后台任务里懒加载的。
+
+##后台任务
+后台任务指的是将一些耗时操作添加到后台执行，减少对界面的阻塞，
+后台任务的实现也有很多种，如下所示：
+
+* ContentView是通过mDecorView.addView()添加到根布局的，通过post方式可以将一些工作推迟到布局完成完成之后进行。
+>getWindow().getDecorView().post(new Runnable() {
+  @Override public void run() {
+     // TODO do some work
+  }
+});
+* IntentService执行后台任务
+>public class InitIntentService extends IntentService {
+    private static final String ACTION = "com.guoxiaoxing.framework.action";
+    public InitIntentService() {
+        super("InitIntentService");
+    }
+    public static void start(Context context) {
+        Intent intent = new Intent(context, InitIntentService.class);
+        intent.setAction(ACTION);
+        context.startService(intent);
+    }
+    @Override
+    protected void onHandleIntent(Intent intent) {
+         // TODO do some work
+    }
+    
+##界面预加载
+界面预加载主要指的是MainActivity的预加载问题，现在的应用一般都会有个闪屏页，
+闪屏页一般有个2s左右的广告时间，这个就是可以利用的黄金时间，可以利用它做MainActivity，
+利用首页的UI逻辑不要 过于负责，利用TraceView和Systrace做好耗时组件和方法的分析与优化，
+另外，如果主页是通过ViewPager实现的，要做好ViewPager的懒加载。
+另外，还可以给MainActivity设置一个windowBackground，免得MainActivity在加载的时候一直白屏。
+
+

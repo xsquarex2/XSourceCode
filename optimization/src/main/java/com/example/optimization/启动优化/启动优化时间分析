@@ -1,0 +1,23 @@
+>从上面启动图可以看出启动时间分为两个部分，系统创建进程的时间和应用进程启动的时间，
+前者是由系统自行完成的，一般都会很快，我们也干预不了，我们能做的就是去优化应用进程启动，
+具体说来就是 从发Application的onCreate()执行开始到MainActivity的onCreate()执行结束这一段时间。
+
+* reportFullyDrawn()
+>API 19 之后系统会给一个启动时间Displayed Time的Log
+
+Displayed com.guoxiaoxing.android.framework.demo/.MainActivity: +557ms
+
+* 通过ADB命令测量启动时间
+>// 启动首页MainActivity
+adb shell am start -W com.guoxiaoxing.android.framework.demo/.MainActivity
+
+>Starting: Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] cmp=com.guoxiaoxing.android.framework.demo/.MainActivity }
+Status: ok
+Activity: com.guoxiaoxing.android.framework.demo/.MainActivity
+ThisTime: 2658(最后一个Activity的启动耗时。)
+TotalTime: 2658(自己所有Activity的启动耗时。)
+WaitTime: 2697(ActivityManagerService启动Activity的总耗时（包括当前Activity的onPause()和自己Activity的启动时间）)
+Complete
+
+* 录屏法
+>adb shell screenrecord --bugreport /sdcard/test.mp4
